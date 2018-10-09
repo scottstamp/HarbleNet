@@ -78,7 +78,7 @@ namespace HarbleNet.Updater
                 history.Add(new HistoryInfo() { Hotel = hotel, Revision = revision, LastChecked = DateTime.UtcNow });
             }
 
-            File.WriteAllText("/var/www/sites/api.harble.net/last_checked.json", JsonConvert.SerializeObject(history));
+            File.WriteAllText("/var/www/sites/api.harble.net/last.json", JsonConvert.SerializeObject(history));
 
             var incomingHashesWithNames = LoadHashesWithName("Hashes.ini", "Incoming");
             var outgoingHashesWithNames = LoadHashesWithName("Hashes.ini", "Outgoing");
