@@ -22,7 +22,6 @@ namespace HarbleNet.Updater
             hashConfig = GetHashesAsync().GetAwaiter().GetResult();
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36");
             GenerateResults().GetAwaiter().GetResult();
-            Console.ReadLine();
         }
 
         static Dictionary<string,string> LoadHashesWithName(string section)
