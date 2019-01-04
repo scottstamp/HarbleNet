@@ -15,50 +15,44 @@ namespace HarbleNet.Updater
     class Program
     {
         static HttpClient httpClient = new HttpClient();
+        static string[] hashConfig;
+
         static void Main(string[] args)
         {
-            using (var wc = new WebClient())
-            {
-                wc.DownloadFile("https://raw.githubusercontent.com/ArachisH/Tanji/master/Tanji/Hashes.ini", "Hashes.ini");
-            }
-
+            hashConfig = GetHashesAsync().GetAwaiter().GetResult();
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36");
             GenerateResults().GetAwaiter().GetResult();
             Console.ReadLine();
         }
 
-        static Dictionary<string, string> LoadHashesWithName(string path, string section)
+        static Dictionary<string,string> LoadHashesWithName(string section)
         {
-            var hashes = new Dictionary<string, string>();
+            var namedHashes = new Dictionary<string, string>();
 
-            using (var input = new StreamReader(path))
+            foreach (var line in hashConfig)
             {
                 bool isInSection = false;
-                while (!input.EndOfStream)
+                if (line.StartsWith("[") && line.EndsWith("]"))
                 {
-                    string line = input.ReadLine();
-                    if (line.StartsWith("[") && line.EndsWith("]"))
-                    {
-                        isInSection = (line == ("[" + section + "]"));
-                    }
-                    else if (isInSection)
-                    {
-                        string[] values = line.Split('=');
-                        string name = values[0].Trim();
-                        string hash = values[1].Trim();
+                    isInSection = (line == ("[" + section + "]"));
+                }
+                else if (isInSection)
+                {
+                    string[] values = line.Split('=');
+                    string name = values[0].Trim();
+                    string hash = values[1].Trim();
 
-                        if (!hashes.ContainsKey(hash))
-                            hashes.Add(hash, name);
-                    }
+                    if (!namedHashes.ContainsKey(hash))
+                        namedHashes.Add(hash, name);
                 }
             }
 
-            return hashes;
+            return namedHashes;
         }
 
         static async Task GenerateResults()
         {
-            var hotels = new string[] { ".com", ".fr", ".com.tr", ".nl", ".de", ".it", ".fi", ".es", /* ".com.br" */ };
+            var hotels = new string[] { ".com", ".fr", ".com.tr", ".nl", ".de", ".it", ".fi", ".es", ".com.br" };
             var revisions = new List<string>();
 
             Console.WriteLine($"[Updater] Checking revisions for hotels: [{string.Join(", ", hotels)}]");
@@ -80,8 +74,8 @@ namespace HarbleNet.Updater
 
             File.WriteAllText("/var/www/sites/api.harble.net/last_checked.json", JsonConvert.SerializeObject(history));
 
-            var incomingHashesWithNames = LoadHashesWithName("Hashes.ini", "Incoming");
-            var outgoingHashesWithNames = LoadHashesWithName("Hashes.ini", "Outgoing");
+            var incomingHashesWithNames = LoadHashesWithName("Incoming");
+            var outgoingHashesWithNames = LoadHashesWithName("Outgoing");
 
             foreach (var revision in revisions)
             {
@@ -91,7 +85,7 @@ namespace HarbleNet.Updater
                     continue;
                 }
 
-                var swfBytes = await GetClientSwf(revision);
+                var swfBytes = await GetClientSwfAsync(revision);
                 Console.WriteLine($"[Updater] Fetched {revision}, Size: {swfBytes.Length / 1024}mb");
                 var game = new HGame(swfBytes);
                 Console.WriteLine($"[Updater] Disassembling SWF");
@@ -125,6 +119,20 @@ namespace HarbleNet.Updater
             }
         }
 
+        static async Task<string[]> GetHashesAsync()
+        {
+            HttpResponseMessage response = await httpClient.GetAsync("https://raw.githubusercontent.com/ArachisH/Tanji/master/Tanji/Hashes.ini");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadAsStringAsync();
+                return result.Split('\n');
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         static async Task<string[]> GetVariablesAsync(string hotel = ".com")
         {
             HttpResponseMessage response = await httpClient.GetAsync($"https://www.habbo{hotel}/gamedata/external_variables/x");
@@ -144,7 +152,7 @@ namespace HarbleNet.Updater
             return Array.Find(variables, s => s.StartsWith("flash.client.url=")).Split('=')[1];
         }
 
-        static async Task<byte[]> GetClientSwf(string revision)
+        static async Task<byte[]> GetClientSwfAsync(string revision)
         {
             HttpResponseMessage response = await httpClient.GetAsync($"https://images.habbo.com/gordon/{revision}/Habbo.swf");
             if (response.IsSuccessStatusCode)
